@@ -1,15 +1,16 @@
-name: Guardrail Drift Check
+name: CI
 
 on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, synchronize, reopened]
 
 permissions:
   contents: write
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -18,7 +19,8 @@ jobs:
           # On pull_request events, head_ref is the PR's source branch.
           # On push events, ref_name is the pushed branch (main).
           ref: ${{ github.head_ref || github.ref_name }}
-          # fetch-depth: 0 ensures we have enough history to push back without rejection.
+          # fetch-depth: 0 ensures we have enough history to push back without rejection
+          # and gives SonarCloud accurate SCM blame info.
           fetch-depth: 0
 
       - name: Set up Java 21
@@ -35,6 +37,13 @@ jobs:
           cache: 'npm'
           cache-dependency-path: petclinic-frontend/package-lock.json
 
+      - name: Cache SonarCloud packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.sonar/cache
+          key: ${{ runner.os }}-sonar
+          restore-keys: ${{ runner.os }}-sonar
+
       - name: Install frontend dependencies
         working-directory: petclinic-frontend
         run: npm ci
@@ -50,9 +59,9 @@ jobs:
           sudo apt-get install -y postgresql-client-16
           pg_dump --version
 
-      - name: Run backend tests
+      - name: Run backend tests (+ JaCoCo report)
         working-directory: petclinic-backend
-        run: ./mvnw test
+        run: ./mvnw -B -ntp test
 
       - name: Verify Javadoc
         working-directory: petclinic-backend
@@ -91,3 +100,15 @@ jobs:
           git add petclinic-backend/docs/generated db.sql petclinic-frontend/src/app/generated/api-types.ts
           git commit -m 'chore(guardrail): regenerate diagrams, db.sql, and api-types.ts [skip ci]'
           git push
+
+      - name: SonarCloud Scan
+        uses: SonarSource/sonarqube-scan-action@v4
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: SonarCloud Quality Gate check
+        uses: SonarSource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
