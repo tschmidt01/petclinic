@@ -21,4 +21,4 @@
 /petclinic-frontend/package.json @victorrentea/elders
 
 # GI Guards
-/.github/workflows/ci-guardrails.yml @victorrentea/elders
+/.github/workflows/ci.yml @victorrentea/elders
