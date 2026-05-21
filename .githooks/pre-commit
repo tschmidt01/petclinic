@@ -43,36 +43,20 @@ if [ -f "$SECRETS_FILE" ]; then
   fi
 fi
 
-# ── Architecture artifacts + OpenAPI/JPA sync ──────────────────────────────
-cd "$ROOT/petclinic-backend"
-MVN_OUT=$(mktemp)
-trap 'rm -f "$MVN_OUT" "$NPM_OUT"' EXIT
-TESTS=(
-  OpenApiExtractorTest
-  DomainModelExtractorTest
-  PackagesArchTest
-  DbSchemaExtractorTest
-  JpaMatchesDBSchemaTest
-  C3ArchTest
-)
-TESTS_CSV=$(IFS=,; echo "${TESTS[*]}")
-if ! mvn -q test -Dtest="$TESTS_CSV" >"$MVN_OUT" 2>&1; then
-  cat "$MVN_OUT"
-  echo "[pre-commit] ❌ Guardrail tests failed — commit blocked."
-  exit 1
-fi
-git add "$ROOT/petclinic-backend/docs/generated" "$ROOT/openapi.yaml" "$ROOT/db.sql"
-
 # ── Frontend: regenerate TS types from openapi.yaml ────────────────────────
-if command -v npm >/dev/null 2>&1 && [ -d "$ROOT/petclinic-frontend/node_modules" ]; then
-  NPM_OUT=$(mktemp)
-  if ! npm --prefix "$ROOT/petclinic-frontend" run generate:api --silent >"$NPM_OUT" 2>&1; then
-    cat "$NPM_OUT"
-    echo "[pre-commit] ❌ TS-types regeneration failed — commit blocked."
-    exit 1
+# Gated: only run when openapi.yaml is staged — that's the sole input.
+if git diff --cached --name-only | grep -qx 'openapi.yaml'; then
+  if command -v npm >/dev/null 2>&1 && [ -d "$ROOT/petclinic-frontend/node_modules" ]; then
+    NPM_OUT=$(mktemp)
+    trap 'rm -f "$NPM_OUT"' EXIT
+    if ! npm --prefix "$ROOT/petclinic-frontend" run generate:api --silent >"$NPM_OUT" 2>&1; then
+      cat "$NPM_OUT"
+      echo "[pre-commit] ❌ TS-types regeneration failed — commit blocked."
+      exit 1
+    fi
+    git add "$ROOT/petclinic-frontend/src/app/generated/api-types.ts"
+  else
+    echo "[pre-commit] ⚠️  npm or petclinic-frontend/node_modules missing — skipping TS-types regen."
+    echo "[pre-commit]    Install with: cd petclinic-frontend && npm install"
   fi
-  git add "$ROOT/petclinic-frontend/src/app/generated/api-types.ts"
-else
-  echo "[pre-commit] ⚠️  npm or petclinic-frontend/node_modules missing — skipping TS-types regen."
-  echo "[pre-commit]    Install with: cd petclinic-frontend && npm install"
 fi

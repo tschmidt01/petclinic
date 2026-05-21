@@ -1,0 +1,65 @@
+#!/usr/bin/env bash
+set -e
+
+ROOT="$(git rev-parse --show-toplevel)"
+REMOTE="$1"
+
+ZERO=0000000000000000000000000000000000000000
+
+# ── Path gating: skip unless pushed commits touch backend / OpenAPI / schema ─
+needs_check=0
+while read -r local_ref local_sha remote_ref remote_sha; do
+  [ "$local_sha" = "$ZERO" ] && continue  # branch deletion — nothing to verify
+
+  if [ "$remote_sha" = "$ZERO" ]; then
+    paths=$(git log --name-only --pretty=format: "$local_sha" --not --remotes="$REMOTE" 2>/dev/null || true)
+  else
+    paths=$(git log --name-only --pretty=format: "$remote_sha..$local_sha" 2>/dev/null || true)
+  fi
+
+  if printf '%s\n' "$paths" | grep -qE '^(petclinic-backend/|openapi\.yaml$|db\.sql$)'; then
+    needs_check=1
+    break
+  fi
+done
+
+if [ "$needs_check" -eq 0 ]; then
+  echo "[pre-push] ✓ No backend / OpenAPI / schema changes — skipping guardrail tests."
+  exit 0
+fi
+
+# ── Architecture artifacts + OpenAPI/JPA sync ──────────────────────────────
+cd "$ROOT/petclinic-backend"
+MVN_OUT=$(mktemp)
+trap 'rm -f "$MVN_OUT"' EXIT
+TESTS=(
+  OpenApiExtractorTest
+  DomainModelExtractorTest
+  PackagesArchTest
+  DbSchemaExtractorTest
+  JpaMatchesDBSchemaTest
+  C3ArchTest
+)
+TESTS_CSV=$(IFS=,; echo "${TESTS[*]}")
+echo "[pre-push] Running guardrail tests (this may take ~20s)…"
+if ! mvn -q test -Dtest="$TESTS_CSV" >"$MVN_OUT" 2>&1; then
+  cat "$MVN_OUT"
+  echo "[pre-push] ❌ Guardrail tests failed — push blocked."
+  exit 1
+fi
+
+# ── Drift detection: regenerated artifacts must match HEAD ─────────────────
+DRIFT_PATHS=(
+  "$ROOT/petclinic-backend/docs/generated"
+  "$ROOT/openapi.yaml"
+  "$ROOT/db.sql"
+)
+if ! git diff --quiet HEAD -- "${DRIFT_PATHS[@]}"; then
+  echo "[pre-push] ❌ Generated artifacts drifted from committed state:"
+  git diff --stat HEAD -- "${DRIFT_PATHS[@]}"
+  echo ""
+  echo "[pre-push]    Commit the regenerated files and push again."
+  exit 1
+fi
+
+echo "[pre-push] ✓ Guardrails passed."
