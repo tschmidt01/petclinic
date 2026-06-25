@@ -3,6 +3,7 @@ package victor.training.petclinic.rest;
 import java.net.URI;
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.http.ResponseEntity;
 import victor.training.petclinic.mapper.OwnerMapper;
 import victor.training.petclinic.mapper.PetMapper;
@@ -57,7 +58,7 @@ public class OwnerRestController {
     @Operation(operationId = "listOwners", summary = "List owners")
     @GetMapping(produces = "application/json")
     public List<OwnerDto> listOwners(@RequestParam(name = "search", defaultValue = "") String search) {
-        List<Owner> owners = ownerRepository.searchOwners(search);
+        List<Owner> owners = ownerRepository.searchOwners(search, Pageable.unpaged()).getContent();
         return ownerMapper.toOwnerDtoCollection(owners);
     }
 
