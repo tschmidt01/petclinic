@@ -12,6 +12,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
+import java.net.URI;
 import java.time.Instant;
 import java.util.List;
 import java.util.NoSuchElementException;
@@ -36,8 +37,8 @@ public class ExceptionControllerAdvice {
     private ProblemDetail buildProblemDetail(String title, String detail, HttpStatus status, HttpServletRequest request) {
         ProblemDetail pd = ProblemDetail.forStatus(status);
         pd.setTitle(title);
-          pd.setDetail(detail);
-        pd.setType(java.net.URI.create(request.getRequestURL().toString()));
+        pd.setDetail(detail);
+        pd.setType(URI.create(request.getRequestURL().toString()));
         pd.setProperty("timestamp", Instant.now());
         return pd;
     }
@@ -61,6 +62,14 @@ public class ExceptionControllerAdvice {
         log.warn("Validation failed: {}", errors);
         ProblemDetail pd = buildProblemDetail("Validation Error", "Validation failed for request. See 'errors' for details.", HttpStatus.BAD_REQUEST, request);
         pd.setProperty("errors", errors);
+        return ResponseEntity.badRequest().body(pd);
+    }
+
+    @ExceptionHandler(InvalidSortFieldException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ProblemDetail> handleInvalidSortField(InvalidSortFieldException ex, HttpServletRequest request) {
+        log.warn("Invalid sort field: {}", ex.getMessage());
+        ProblemDetail pd = buildProblemDetail("Invalid Sort", ex.getMessage(), HttpStatus.BAD_REQUEST, request);
         return ResponseEntity.badRequest().body(pd);
     }
 

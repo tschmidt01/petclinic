@@ -1,9 +1,15 @@
 package victor.training.petclinic.rest;
 
 import java.net.URI;
-import java.util.List;
+import java.util.Set;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import victor.training.petclinic.rest.error.InvalidSortFieldException;
 import victor.training.petclinic.mapper.OwnerMapper;
 import victor.training.petclinic.mapper.PetMapper;
 import victor.training.petclinic.mapper.VisitMapper;
@@ -54,11 +60,27 @@ public class OwnerRestController {
 
     private final VisitMapper visitMapper;
 
+    private static final Set<String> SORTABLE_FIELDS =
+        Set.of("firstName", "lastName", "address", "city", "telephone");
+
     @Operation(operationId = "listOwners", summary = "List owners")
     @GetMapping(produces = "application/json")
-    public List<OwnerDto> listOwners(@RequestParam(name = "search", defaultValue = "") String search) {
-        List<Owner> owners = ownerRepository.searchOwners(search);
-        return ownerMapper.toOwnerDtoCollection(owners);
+    public Page<OwnerDto> listOwners(
+            @RequestParam(name = "search", defaultValue = "") String search,
+            @PageableDefault(size = 10, sort = "lastName") Pageable pageable) {
+        Pageable sanitized = withValidatedSort(pageable);
+        Page<Owner> owners = ownerRepository.searchOwners(search, sanitized);
+        return owners.map(ownerMapper::toOwnerDto);
+    }
+
+    private Pageable withValidatedSort(Pageable pageable) {
+        for (Sort.Order order : pageable.getSort()) {
+            if (!SORTABLE_FIELDS.contains(order.getProperty())) {
+                throw new InvalidSortFieldException("Unsortable field: " + order.getProperty());
+            }
+        }
+        Sort withTiebreak = pageable.getSort().and(Sort.by("firstName").ascending());
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), withTiebreak);
     }
 
     @Operation(operationId = "countOwners", summary = "Count owners")

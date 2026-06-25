@@ -22,15 +22,15 @@
 
     </form>
 
-    <div *ngIf="!owners">No owners match "{{searchTerm}}"</div>
-    <div class="table-responsive" id="ownersTable"  *ngIf="owners">
+    <div *ngIf="isOwnersDataReceived && page.totalElements === 0">No owners match "{{searchTerm}}"</div>
+    <div class="table-responsive" id="ownersTable"  *ngIf="page.totalElements > 0">
       <table class="table table-striped">
         <thead>
         <tr>
-          <th>Name</th>
-          <th>Address</th>
-          <th>City</th>
-          <th>Telephone</th>
+          <th style="cursor:pointer" (click)="sort('lastName')">Name <span>{{ arrow('lastName') }}</span></th>
+          <th style="cursor:pointer" (click)="sort('address')">Address <span>{{ arrow('address') }}</span></th>
+          <th style="cursor:pointer" (click)="sort('city')">City <span>{{ arrow('city') }}</span></th>
+          <th style="cursor:pointer" (click)="sort('telephone')">Telephone <span>{{ arrow('telephone') }}</span></th>
           <th>Pets</th>
         </tr>
         </thead>
@@ -52,6 +52,17 @@
       </table>
       <div>
         <button *ngIf="isOwnersDataReceived" class="btn btn-default" (click)="addOwner()">Add Owner</button>
+      </div>
+      <div class="form-inline" style="margin-top:10px">
+        <button class="btn btn-default" (click)="prevPage()" [disabled]="pageIndex === 0">Prev</button>
+        <span style="margin:0 10px">Page {{ page.number + 1 }} of {{ page.totalPages }}</span>
+        <button class="btn btn-default" (click)="nextPage()"
+                [disabled]="pageIndex + 1 >= page.totalPages">Next</button>
+        <label style="margin-left:15px">Rows per page
+          <select class="form-control" [ngModel]="size" (ngModelChange)="changeSize($event)">
+            <option *ngFor="let opt of sizeOptions" [ngValue]="opt">{{ opt }}</option>
+          </select>
+        </label>
       </div>
     </div>
   </div>

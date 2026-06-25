@@ -34,6 +34,7 @@ import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -156,8 +157,8 @@ public class OwnerTest {
             .getResponse()
             .getContentAsString();
 
-        return mapper.readValue(responseJson, new TypeReference<List<OwnerDto>>() {
-        });
+        JsonNode content = mapper.readTree(responseJson).get("content");
+        return mapper.convertValue(content, new TypeReference<List<OwnerDto>>() {});
     }
 
     @Test
@@ -219,6 +220,38 @@ public class OwnerTest {
         assertThat(owners)
             .extracting(OwnerDto::getId)
             .contains(ownerId);
+    }
+
+    @Test
+    void list_isPaged_withSizeAndTotals() throws Exception {
+        // seed a couple more so there is at least a second page at size 1
+        Owner extra = TestData.anOwner();
+        extra.setLastName("Aaronson");
+        ownerRepository.save(extra);
+
+        String json = mockMvc.perform(get("/api/owners?page=0&size=1"))
+            .andExpect(status().isOk())
+            .andReturn().getResponse().getContentAsString();
+
+        JsonNode root = mapper.readTree(json);
+        assertThat(root.get("content").size()).isEqualTo(1);
+        assertThat(root.get("size").asInt()).isEqualTo(1);
+        assertThat(root.get("totalElements").asLong()).isGreaterThanOrEqualTo(2);
+        assertThat(root.get("totalPages").asInt()).isGreaterThanOrEqualTo(2);
+    }
+
+    @Test
+    void list_sortsByLastNameDescending() throws Exception {
+        List<OwnerDto> owners = search("/api/owners?sort=lastName,desc");
+
+        assertThat(owners).isSortedAccordingTo(
+            (a, b) -> b.getLastName().compareTo(a.getLastName()));
+    }
+
+    @Test
+    void list_invalidSortField_isBadRequest() throws Exception {
+        mockMvc.perform(get("/api/owners?sort=ssn,asc"))
+            .andExpect(status().isBadRequest());
     }
 
     @Test

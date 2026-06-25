@@ -27,6 +27,7 @@ import jakarta.transaction.Transactional;
 import victor.training.petclinic.model.Owner;
 import victor.training.petclinic.model.Pet;
 import victor.training.petclinic.model.PetType;
+import org.springframework.data.domain.Pageable;
 import victor.training.petclinic.repository.OwnerRepository;
 import victor.training.petclinic.repository.PetRepository;
 import victor.training.petclinic.repository.PetTypeRepository;
@@ -95,7 +96,7 @@ class OwnerCreateTest {
             .andExpect(status().isCreated())
             .andExpect(header().exists("Location"));
 
-        assertThat(ownerRepository.searchOwners("Tesla")).isNotEmpty();
+        assertThat(ownerRepository.searchOwners("Tesla", Pageable.unpaged()).getContent()).isNotEmpty();
     }
 
     @Test

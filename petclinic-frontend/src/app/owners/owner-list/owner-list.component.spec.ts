@@ -9,6 +9,7 @@ import {FormsModule} from '@angular/forms';
 import {ActivatedRoute} from '@angular/router';
 import { OwnerService } from '../owner.service';
 import {Owner} from '../owner';
+import {OwnerPage} from '../owner-page';
 import {Observable, of} from 'rxjs';
 import {RouterTestingModule} from '@angular/router/testing';
 import {CommonModule} from '@angular/common';
@@ -23,11 +24,7 @@ import Spy = jasmine.Spy;
 
 
 class OwnerServiceStub {
-  getOwners(): Observable<Owner[]> {
-    return of();
-  }
-
-  searchOwners(lastName: string): Observable<Owner[]> {
+  getOwners(search: string, page: number, size: number, sort: string): Observable<OwnerPage> {
     return of();
   }
 }
@@ -38,7 +35,6 @@ describe('OwnerListComponent', () => {
   let fixture: ComponentFixture<OwnerListComponent>;
   let ownerService = new OwnerServiceStub();
   let getOwnersSpy: Spy;
-  let searchOwnersSpy: Spy;
   let de: DebugElement;
   let el: HTMLElement;
 
@@ -79,10 +75,10 @@ describe('OwnerListComponent', () => {
     fixture = TestBed.createComponent(OwnerListComponent);
     component = fixture.componentInstance;
     ownerService = fixture.debugElement.injector.get(OwnerService);
-    getOwnersSpy = spyOn(ownerService, 'getOwners')
-      .and.returnValue(of(testOwners));
-    searchOwnersSpy = spyOn(ownerService, 'searchOwners')
-      .and.returnValue(of(testOwners));
+    const testPage: OwnerPage = {
+      content: testOwners, totalElements: 1, totalPages: 1, number: 0, size: 10,
+    };
+    getOwnersSpy = spyOn(ownerService, 'getOwners').and.returnValue(of(testPage));
 
   });
 
@@ -106,24 +102,18 @@ describe('OwnerListComponent', () => {
     });
   }));
 
-  it('search should call getOwners for empty term', () => {
+  it('search calls getOwners with the term and resets to page 0', () => {
     getOwnersSpy.calls.reset();
-    searchOwnersSpy.calls.reset();
-
-    component.search('');
-
-    expect(getOwnersSpy).toHaveBeenCalled();
-    expect(searchOwnersSpy).not.toHaveBeenCalled();
+    component.search('Fr');
+    expect(getOwnersSpy).toHaveBeenCalledWith('Fr', 0, component.size, 'lastName,asc');
   });
 
-  it('search should call searchOwners for non-empty term', () => {
-    getOwnersSpy.calls.reset();
-    searchOwnersSpy.calls.reset();
-
-    component.search('Fr');
-
-    expect(searchOwnersSpy).toHaveBeenCalledWith('Fr');
-    expect(getOwnersSpy).not.toHaveBeenCalled();
+  it('sort toggles direction on the same field', () => {
+    component.sort('lastName');            // already default asc -> desc
+    expect(component.sortDir).toBe('desc');
+    component.sort('city');                // new field -> asc
+    expect(component.sortField).toBe('city');
+    expect(component.sortDir).toBe('asc');
   });
 
 });

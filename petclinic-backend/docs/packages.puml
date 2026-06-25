@@ -19,6 +19,7 @@ caption All lines are ArchUnit-tested to be reflected in code.
 [REST] --> [Repository]
 [REST] --> [Mapper]
 [REST] --> [DTO]
+[REST] --> [REST Error]
 [MCP] --> [Model]
 [MCP] --> [Repository]
 
