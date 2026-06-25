@@ -8,9 +8,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.server.ResponseStatusException;
+import victor.training.petclinic.rest.error.InvalidSortFieldException;
 import victor.training.petclinic.mapper.OwnerMapper;
 import victor.training.petclinic.mapper.PetMapper;
 import victor.training.petclinic.mapper.VisitMapper;
@@ -77,8 +76,7 @@ public class OwnerRestController {
     private Pageable withValidatedSort(Pageable pageable) {
         for (Sort.Order order : pageable.getSort()) {
             if (!SORTABLE_FIELDS.contains(order.getProperty())) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Unsortable field: " + order.getProperty());
+                throw new InvalidSortFieldException("Unsortable field: " + order.getProperty());
             }
         }
         Sort withTiebreak = pageable.getSort().and(Sort.by("firstName").ascending());

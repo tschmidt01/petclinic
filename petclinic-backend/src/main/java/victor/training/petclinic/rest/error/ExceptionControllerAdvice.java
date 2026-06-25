@@ -12,8 +12,6 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 
-import org.springframework.web.server.ResponseStatusException;
-
 import java.net.URI;
 import java.time.Instant;
 import java.util.List;
@@ -39,7 +37,7 @@ public class ExceptionControllerAdvice {
     private ProblemDetail buildProblemDetail(String title, String detail, HttpStatus status, HttpServletRequest request) {
         ProblemDetail pd = ProblemDetail.forStatus(status);
         pd.setTitle(title);
-          pd.setDetail(detail);
+        pd.setDetail(detail);
         pd.setType(URI.create(request.getRequestURL().toString()));
         pd.setProperty("timestamp", Instant.now());
         return pd;
@@ -67,12 +65,12 @@ public class ExceptionControllerAdvice {
         return ResponseEntity.badRequest().body(pd);
     }
 
-    @ExceptionHandler(ResponseStatusException.class)
-    public ResponseEntity<ProblemDetail> handleResponseStatusException(ResponseStatusException ex, HttpServletRequest request) {
-        HttpStatus status = HttpStatus.resolve(ex.getStatusCode().value());
-        if (status == null) status = HttpStatus.INTERNAL_SERVER_ERROR;
-        ProblemDetail pd = buildProblemDetail(ex.getReason(), ex.getReason(), status, request);
-        return ResponseEntity.status(status).body(pd);
+    @ExceptionHandler(InvalidSortFieldException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ResponseEntity<ProblemDetail> handleInvalidSortField(InvalidSortFieldException ex, HttpServletRequest request) {
+        log.warn("Invalid sort field: {}", ex.getMessage());
+        ProblemDetail pd = buildProblemDetail("Invalid Sort", ex.getMessage(), HttpStatus.BAD_REQUEST, request);
+        return ResponseEntity.badRequest().body(pd);
     }
 
     @ExceptionHandler(Exception.class)
