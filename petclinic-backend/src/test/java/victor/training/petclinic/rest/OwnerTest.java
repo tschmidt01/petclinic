@@ -136,12 +136,12 @@ public class OwnerTest {
     }
 
     @Test
-    void getAllWithAddressFilter() throws Exception {
+    void getAllWithLastNameFilter() throws Exception {
         Owner owner2 = TestData.anOwner();
         owner2.setLastName("JavaBeans");
         int owner2Id = ownerRepository.save(owner2).getId();
 
-        List<OwnerDto> owners = search("/api/owners?lastName=Java");
+        List<OwnerDto> owners = search("/api/owners?search=Java");
 
         assertThat(owners)
             .extracting(OwnerDto::getId, OwnerDto::getLastName)
@@ -162,9 +162,63 @@ public class OwnerTest {
 
     @Test
     void getAllWithNameFilter_notFound() throws Exception {
-        List<OwnerDto> results = search("/api/owners?lastName=NonExistent");
+        List<OwnerDto> results = search("/api/owners?search=NonExistent");
 
         assertThat(results).isEmpty();
+    }
+
+    @Test
+    void search_byFirstName_caseInsensitiveSubstring() throws Exception {
+        List<OwnerDto> owners = search("/api/owners?search=eorg");
+
+        assertThat(owners)
+            .extracting(OwnerDto::getId, OwnerDto::getFirstName)
+            .contains(Assertions.tuple(ownerId, "George"));
+    }
+
+    @Test
+    void search_byCity_caseInsensitive() throws Exception {
+        List<OwnerDto> owners = search("/api/owners?search=london");
+
+        assertThat(owners)
+            .extracting(OwnerDto::getId)
+            .contains(ownerId);
+    }
+
+    @Test
+    void search_byAddress_substring() throws Exception {
+        List<OwnerDto> owners = search("/api/owners?search=baker");
+
+        assertThat(owners)
+            .extracting(OwnerDto::getId)
+            .contains(ownerId);
+    }
+
+    @Test
+    void search_byTelephone_substring() throws Exception {
+        List<OwnerDto> owners = search("/api/owners?search=456789");
+
+        assertThat(owners)
+            .extracting(OwnerDto::getId)
+            .contains(ownerId);
+    }
+
+    @Test
+    void search_byPetName_caseInsensitive() throws Exception {
+        List<OwnerDto> owners = search("/api/owners?search=rosy");
+
+        assertThat(owners)
+            .extracting(OwnerDto::getId)
+            .contains(ownerId);
+    }
+
+    @Test
+    void search_emptyTerm_returnsAll() throws Exception {
+        List<OwnerDto> owners = search("/api/owners?search=");
+
+        assertThat(owners)
+            .extracting(OwnerDto::getId)
+            .contains(ownerId);
     }
 
     @Test
